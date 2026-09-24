@@ -1,0 +1,16 @@
+* text=auto eol=lf
+*.cs text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.asmdef text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.meta text eol=lf
+*.asset text eol=lf
+# Unity serialization includes trailing spaces for empty values.
+*.meta whitespace=-blank-at-eol
+*.asset whitespace=-blank-at-eol
+# Preserve the upstream bootstrap verbatim.
+Packages/com.vrchat.core.bootstrap/** whitespace=-blank-at-eol
+*.png binary
+*.ico binary
