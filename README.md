@@ -1,7 +1,7 @@
 # MA Blendshape Sync Mapper
 
 VRChat Avatar向けのModular Avatar Blendshape Syncを、一括で可視化・編集するUnity Editor Toolです。
-**開発中・正式Release前**です。現在は読み取り専用ScanとRenderer一覧を実装しています。
+**開発中・正式Release前**です。現在は読み取り専用ScanとMatrix・Renderer Detailsを実装しています。
 
 ## 対象と目的
 
@@ -14,10 +14,12 @@ VRChat Avatar向けのModular Avatar Blendshape Syncを、一括で可視化・�
 - Source Renderer（SkinnedMeshRenderer）とTarget Root（GameObject）を指定する。
 - RescanでInactiveを含むTarget Rendererと既存MA Bindingを読み取る。
 - Rendererごとのcompatible / synced / missing / custom / brokenを表示する。
+- Renderer × Source BlendShapeのMatrixを、検索とRelevant / All Source / Missingフィルタで絞り込む。
+- 固定Renderer列、セルTooltip、選択RendererのDetailsで既存Mappingと診断を確認する。
 - Renderer行をクリックしてHierarchy上のGameObjectを選択する。
 
 SnapshotはWindow内の一時データです。Missingはexact同名Bindingの不足を表し、既存custom mappingの上書き許可を意味しません。
-Binding追加・更新・削除、Matrix UIは未実装です。ScanとWindow操作はアバターを変更しません。
+Binding追加・更新・削除は未実装です。ScanとMatrix操作はアバターを変更しません。
 
 ## 環境と配布
 

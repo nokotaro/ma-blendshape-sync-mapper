@@ -9,7 +9,12 @@ RescanでTarget Root自身と子孫のSkinnedMeshRendererをInactiveも含めて
 Rendererごとのcompatible / synced / missing / custom / brokenとHierarchy pathを表示します。行クリックでGameObjectを選択できます。
 SnapshotはWindow内の一時データです。入力変更や参照先削除時にはRescanを促します。
 Missingは同名exact Bindingの不足であり、custom mappingがないことを意味しません。
-Component、Binding、Mesh、Scene、Prefabへの書き込みは行いません。MatrixとBinding編集は未実装です。
+Matrixの横軸はSource BlendShape、縦軸はRendererです。横scrollでも左側のRenderer列は固定されます。
+Searchは大小文字を区別せず、Relevant（既定）/ All Source / Missingと併用できます。
+`●` synced、`○` missing exact、`△` missing + Target側custom占有、`-`同名Shapeなしを表します。
+補助記号`C`は関連custom、`×`は関連brokenです。Tooltipで実際の参照先・Shape名・Remap情報を確認できます。
+Renderer行を選択するとDetailsに全体集計、Hierarchy path、Instance ID、Component数、custom/other-source/broken診断が出ます。
+Component、Binding、Mesh、Scene、Prefabへの書き込みは行いません。Binding編集は未実装です。
 
 ## 対応環境
 

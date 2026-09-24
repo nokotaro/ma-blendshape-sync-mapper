@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Nokotaro.BlendshapeSyncMapper.Analysis;
 using Nokotaro.BlendshapeSyncMapper.ModularAvatar;
+using Nokotaro.BlendshapeSyncMapper.UI;
 using nadena.dev.modular_avatar.core;
 using NUnit.Framework;
 using UnityEditor;
@@ -20,7 +21,7 @@ using Object = UnityEngine.Object;
 
 namespace Nokotaro.BlendshapeSyncMapper.Tests
 {
-    public sealed class BlendshapeSyncScannerTests
+    public sealed partial class BlendshapeSyncScannerTests
     {
         private Scene scene;
         private Scene previousScene;
@@ -317,6 +318,11 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
             Assert.That(snapshot.SyncedCount, Is.EqualTo(3000));
             Assert.That(snapshot.MissingCount, Is.EqualTo(1500));
             TestContext.WriteLine($"30 renderers x 150 shapes / 3000 bindings: {watch.Elapsed.TotalMilliseconds:F2} ms");
+            watch.Restart();
+            var view = new BlendshapeMatrixView(snapshot);
+            watch.Stop();
+            Assert.That(view.Model.Rows.Count * view.Model.Columns.Count, Is.EqualTo(4500));
+            TestContext.WriteLine($"Matrix model + all GUIContent / tooltips: {watch.Elapsed.TotalMilliseconds:F2} ms");
         }
 
         private void SaveMeshes()
@@ -330,9 +336,17 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
         [UnityTest]
         public IEnumerator WindowRescanAndRepaintDoNotChangeScenePrefabOrBindings()
         {
-            var source = Renderer("Body", "A");
-            var target = Renderer("Jacket", "A");
-            var sync = Sync(target, Binding(source, "A"));
+            var names = Enumerable.Range(0, 60).Select(i => "Shape" + i.ToString("D2")).ToArray();
+            var source = Renderer("Body", names);
+            for (var i = 0; i < 12; i++)
+            {
+                var item = Renderer("Jacket" + i, names.Take(50).Concat(new[] { "CustomTarget" }).ToArray());
+                Sync(item, names.Take(30).Select(name => Binding(source, name)).Concat(new[] {
+                    Binding(source, names[55], names[45]), Binding(source, names[56], "CustomTarget"),
+                    Binding(source, names[57], "Gone") }).ToArray());
+            }
+            var target = avatar.transform.Find("Jacket0").GetComponent<SkinnedMeshRenderer>();
+            var sync = target.GetComponent<ModularAvatarBlendshapeSync>();
             SaveMeshes();
             var prefabPath = assetFolder + "/Avatar.prefab";
             PrefabUtility.SaveAsPrefabAssetAndConnect(avatar, prefabPath, InteractionMode.AutomatedAction);
@@ -354,13 +368,35 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
             window = EditorWindow.GetWindow<BlendshapeSyncMapperWindow>();
             var windowState = new SerializedObject(window);
             windowState.FindProperty("sourceRenderer").objectReferenceValue = source;
-            windowState.FindProperty("targetRoot").objectReferenceValue = target.gameObject;
+            windowState.FindProperty("targetRoot").objectReferenceValue = avatar;
             windowState.ApplyModifiedPropertiesWithoutUndo();
             window.Rescan();
+            window.position = new Rect(20, 20, 900, 700);
             window.Repaint();
             yield return null;
             Assert.That(window.Analysis, Is.Not.Null);
-            Assert.That(window.Analysis.SyncedCount, Is.EqualTo(1));
+            Assert.That(window.Analysis.SyncedCount, Is.EqualTo(360));
+            var snapshot = window.Analysis;
+            var matrix = window.Matrix;
+            Assert.That(matrix.VisibleColumns.Count, Is.EqualTo(53));
+            window.SetColumnFilter("sHaPe4", MatrixColumnFilter.Missing);
+            Assert.That(matrix.VisibleColumns.Count, Is.EqualTo(10));
+            window.Repaint();
+            yield return null;
+            window.SetColumnFilter("", MatrixColumnFilter.AllSource);
+            Assert.That(matrix.VisibleColumns.Count, Is.EqualTo(60));
+            matrix.ScrollPosition = new Vector2(2000, 80);
+            matrix.SelectRow(11);
+            window.Repaint();
+            yield return null;
+            Assert.That(matrix.ScrollPosition.x, Is.GreaterThan(0));
+            Assert.That(matrix.ScrollPosition.y, Is.GreaterThan(0));
+            Assert.That(Selection.activeGameObject, Is.EqualTo(matrix.Model.Rows[11].RendererState.Renderer.gameObject));
+            Assert.That(matrix.CellContent(0, 45).tooltip, Does.Contain("Missing exact sync + existing custom"));
+            Assert.That(matrix.CellContent(0, 56).tooltip, Does.Contain("CustomTarget").And.Contain("Remap curve: present"));
+            Assert.That(matrix.SelectedDetails, Does.Contain("MissingTargetBlendshape").And.Contain("Instance ID").And.Contain("MA components"));
+            Assert.That(window.Analysis, Is.SameAs(snapshot), "Filtering / scrolling / selection must not rescan.");
+            Assert.That(window.Matrix, Is.SameAs(matrix));
             Assert.That(scene.isDirty, Is.False);
             Assert.That(EditorUtility.IsDirty(sync), Is.EqualTo(componentDirty));
             Assert.That(EditorUtility.IsDirty(target), Is.EqualTo(rendererDirty));
@@ -369,6 +405,19 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
             CollectionAssert.AreEqual(prefabBytes, File.ReadAllBytes(prefabPath));
             CollectionAssert.AreEqual(sceneBytes, File.ReadAllBytes(scenePath));
             Assert.That(PrefabUtility.GetPropertyModifications(avatar)?.Length ?? 0, Is.EqualTo(overrides?.Length ?? 0));
+            // Unity hot reload may restore null string fields as empty strings; reopening must reset UI errors.
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var errorField = typeof(BlendshapeSyncMapperWindow).GetField("scanError", flags);
+            errorField.SetValue(window, "");
+            typeof(BlendshapeSyncMapperWindow).GetMethod("OnEnable", flags).Invoke(window, null);
+            Assert.That(window.Analysis, Is.Null);
+            Assert.That(window.Matrix, Is.Null);
+            Assert.That(errorField.GetValue(window), Is.Null);
+            window.Rescan();
+            Object.DestroyImmediate(target.gameObject);
+            typeof(BlendshapeSyncMapperWindow).GetMethod("ValidateSnapshot", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(window, null);
+            Assert.That(window.Analysis, Is.Null);
+            Assert.That(window.Matrix, Is.Null);
         }
 
         [Test]

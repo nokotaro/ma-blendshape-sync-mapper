@@ -98,6 +98,20 @@ Scene/Prefabの読み取り専用テストでは、Scan・Window描画前後のs
 - 最終実行ログにNDMFのNoto Sans CJK JPフォント未検出メッセージ、およびUnityライセンス署名検証Code 10/Access token unavailableがある。ライセンス権利解決後、全テストは正常終了。
 - SDK初期化が変更したプロジェクト設定や自動取得したVPM Resolverは機能の差分に含めない。テスト用Assetは後片付け済み。
 
+### Read-only Matrixの実測結果（2026-09-24）
+
+- Unity 2022.3.22f1 / MA 1.18.7、EditMode全22件成功（既存16件を含む）、失敗・skip 0件、終了コード0。
+- Matrix基本状態、Missing + Custom占有、別名対応、他Source/解決不能参照を誤ってSource列へ関連付けないことを検証。
+- 検索の大小文字、Relevant / All Source / Missing、複数Rendererでの列集約、Source index保持、0 Renderer / 0 Shapeを検証。
+- 合成12 Renderer × 60 ShapeをWindowへ渡し、フィルタ・横/縦scroll state・選択・Tooltip内容・Details・参照削除時のMatrix破棄を検証。
+- 同じAnalysis/Viewインスタンスがフィルタ・scroll・選択後も維持されること、およびScene dirty、MA serialized値、保存Scene/Prefab byte列、Prefab override数の不変性を検証。
+- 30 Renderer × 150 Shape / 3,000 Binding: 最終実行のScan 19.17 ms、Matrix View Model + 全GUIContent/Tooltip生成63.14 ms（当PCのbatchmodeで各1回。描画FPSや他PCの性能保証ではない）。
+- 製品・テストコードの最終コンパイルwarning/error 0件。外部Packageは未改変。Unityライセンス署名Code 10/Access token unavailableとNDMFのNoto Sans CJK JP未検出メッセージは残るが、全テスト正常終了。
+- 合成12 Renderer × 60 Shapeを使い、WindowsのUnity対話画面（Dark skin）でRescan、横/縦scroll、固定Renderer列、大小文字混在の検索、Relevant/Missing切替、RendererクリックとHierarchy連動、Header/セルTooltip、Missing + Custom情報、Detailsを目視確認した。
+- 操作中にSceneの未保存マークが付かず、保存SceneのSHA256も操作前後で一致。Prefab/serialized値の不変性と参照削除時の無効化は上記Editor Testで検証。Light skinは未目視。
+- 目視で見つかったRenderer行の2行テキスト切れをStyleのfixedHeight解除で修正。Window再有効化時の空エラー表示も状態初期化で修正し、再コンパイル後にRescan案内へ戻ることを確認した。
+- 対話検証中の外部Package再コンパイルでは従来のMA/NDMF warningに加え、CancellationTokenSourceの二重Disposeメッセージが1件あった。最終batchテストでは再現せず、製品コードの例外・テスト失敗はない。
+
 ### 初期構築時の実測結果
 
 - Unity 2022.3.22f1: コンパイル成功。グラフィックス有効のbatchmodeでOpenWindowを実行し、終了コード0。

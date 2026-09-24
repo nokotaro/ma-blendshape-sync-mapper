@@ -1,5 +1,6 @@
 using System;
 using Nokotaro.BlendshapeSyncMapper.Analysis;
+using Nokotaro.BlendshapeSyncMapper.UI;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,11 +14,22 @@ namespace Nokotaro.BlendshapeSyncMapper
         [SerializeField] private GameObject targetRoot;
 
         private BlendshapeSyncAnalysis analysis;
-        private Vector2 scrollPosition;
+        private BlendshapeMatrixView matrix;
+        private Vector2 detailScroll;
+        private string search = "";
+        private MatrixColumnFilter columnFilter;
+        private static readonly string[] FilterNames = { "Relevant", "All Source", "Missing" };
         private string scanError;
         private string snapshotMessage = "Press Rescan to analyze the current setup.";
 
         public BlendshapeSyncAnalysis Analysis => analysis;
+        public BlendshapeMatrixView Matrix => matrix;
+
+        private void OnEnable()
+        {
+            minSize = new Vector2(680, 660);
+            InvalidateSnapshot("Press Rescan to analyze the current setup.");
+        }
 
         [MenuItem("Tools/MA Blendshape Sync Mapper")]
         public static void OpenWindow()
@@ -54,16 +66,29 @@ namespace Nokotaro.BlendshapeSyncMapper
                 $"{analysis.CompatibleCount} compatible / {analysis.SyncedCount} synced / {analysis.MissingCount} missing",
                 EditorStyles.wordWrappedLabel);
             EditorGUILayout.LabelField($"{analysis.CustomCount} custom / {analysis.BrokenCount} broken");
-            EditorGUILayout.HelpBox("Read-only snapshot. Rescan after editing meshes or MA bindings. " +
-                "Missing means no exact same-name sync; existing custom mappings are preserved.", MessageType.Info);
+            EditorGUILayout.LabelField("Read-only snapshot. Rescan after external changes. Missing includes custom-occupied targets.", EditorStyles.wordWrappedMiniLabel);
             if (analysis.Renderers.Count == 0)
             {
                 EditorGUILayout.HelpBox("No SkinnedMeshRenderers found under Target Root.", MessageType.Info);
                 return;
             }
 
-            scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
-            foreach (var row in analysis.Renderers) DrawRenderer(row);
+            EditorGUI.BeginChangeCheck();
+            var nextSearch = EditorGUILayout.TextField("Search BlendShapes", search);
+            var nextFilter = (MatrixColumnFilter)EditorGUILayout.Popup("View", (int)columnFilter, FilterNames);
+            if (EditorGUI.EndChangeCheck()) SetColumnFilter(nextSearch, nextFilter);
+            EditorGUILayout.LabelField("● Synced   ○ Missing exact   △ Missing + custom on Target   - Not available",
+                EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("C Related custom mapping   × Related broken mapping   |   Hover cells for binding / remap details",
+                EditorStyles.wordWrappedMiniLabel);
+            matrix.Draw(GUILayoutUtility.GetRect(0, 10000, 120, 10000, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)));
+            EditorGUILayout.LabelField("Selected Renderer Details", EditorStyles.boldLabel);
+            using (new EditorGUI.DisabledScope(matrix.SelectedRow < 0))
+                if (GUILayout.Button("Select in Hierarchy")) matrix.SelectRow(matrix.SelectedRow);
+            detailScroll = EditorGUILayout.BeginScrollView(detailScroll, GUILayout.Height(145));
+            var details = matrix.SelectedDetails;
+            var detailHeight = EditorStyles.wordWrappedLabel.CalcHeight(matrix.SelectedDetailContent, Mathf.Max(100, position.width - 36));
+            EditorGUILayout.SelectableLabel(details, EditorStyles.wordWrappedLabel, GUILayout.Height(detailHeight));
             EditorGUILayout.EndScrollView();
         }
 
@@ -72,8 +97,26 @@ namespace Nokotaro.BlendshapeSyncMapper
             InvalidateSnapshot("Press Rescan to analyze the current setup.");
             var error = BlendshapeSyncScanner.GetInputError(sourceRenderer, targetRoot);
             if (error != null) { scanError = error; return; }
-            try { analysis = BlendshapeSyncScanner.Scan(sourceRenderer, targetRoot); }
-            catch (Exception exception) { scanError = $"Scan failed: {exception.GetType().Name}: {exception.Message}"; }
+            try
+            {
+                analysis = BlendshapeSyncScanner.Scan(sourceRenderer, targetRoot);
+                matrix = new BlendshapeMatrixView(analysis);
+                matrix.SetFilter(search, columnFilter);
+            }
+            catch (Exception exception)
+            {
+                analysis = null;
+                matrix = null;
+                scanError = $"Scan failed: {exception.GetType().Name}: {exception.Message}";
+            }
+            Repaint();
+        }
+
+        public void SetColumnFilter(string query, MatrixColumnFilter filter)
+        {
+            search = query ?? "";
+            columnFilter = filter;
+            matrix?.SetFilter(search, columnFilter);
             Repaint();
         }
 
@@ -92,28 +135,11 @@ namespace Nokotaro.BlendshapeSyncMapper
         private void InvalidateSnapshot(string message)
         {
             analysis = null;
+            matrix = null;
+            detailScroll = Vector2.zero;
             scanError = null;
             snapshotMessage = message;
         }
 
-        private static void DrawRenderer(BlendshapeSyncRendererState row)
-        {
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-            {
-                var status = row.BrokenCount > 0 || row.MissingCount > 0 ? "[!]"
-                    : row.CompatibleCount > 0 ? "[OK]" : "[-]";
-                if (GUILayout.Button(new GUIContent($"{status} {row.DisplayName}", "Select this Renderer in the Hierarchy."),
-                        EditorStyles.miniButton) && row.Renderer != null)
-                    Selection.activeGameObject = row.Renderer.gameObject;
-                EditorGUILayout.LabelField($"{row.HierarchyPath} (ID {row.RendererInstanceId})", EditorStyles.wordWrappedMiniLabel);
-                EditorGUILayout.LabelField($"Source {row.SourceBlendshapeCount} / Target {row.TargetBlendshapes.Count} shapes");
-                EditorGUILayout.LabelField($"{row.CompatibleCount} compatible / {row.SyncedCount} synced / {row.MissingCount} missing",
-                    EditorStyles.wordWrappedLabel);
-                EditorGUILayout.LabelField($"{row.CustomCount} custom / {row.BrokenCount} broken / {row.Components.Count} MA components",
-                    EditorStyles.wordWrappedLabel);
-                if (row.Mesh == null) EditorGUILayout.HelpBox("Target Renderer has no sharedMesh.", MessageType.Info);
-                foreach (var diagnostic in row.Diagnostics) EditorGUILayout.HelpBox(diagnostic, MessageType.Warning);
-            }
-        }
     }
 }

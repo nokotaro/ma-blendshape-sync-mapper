@@ -12,7 +12,7 @@ MVPでは既存Componentを読み取り、一覧化し、不足Bindingを検出�
 
 Source RendererとTarget Rootを指定し、Rescanで読み取り専用のSnapshotを作成する。
 Inactiveを含むTarget Root自身と子孫のSkinnedMeshRendererを検索し、Source Renderer自身を除外する。
-WindowはRenderer単位の集計を表示し、行クリックではSelection.activeGameObjectだけを変更する。
+WindowはRenderer × Source BlendShapeのMatrixとRenderer単位の集計・Detailsを表示し、行クリックでは選択行のUI stateとSelection.activeGameObjectだけを変更する。
 Scene、Prefab、Mesh、MA Componentへの書き込み、Undo、Dirty設定は存在しない。
 Matrix編集、Binding追加・更新・削除は未実装。
 
@@ -95,8 +95,38 @@ Foundation時に設定した検証済み下限を維持し、今回のReaderもM
 履歴ではRemapCurve導入が`a49410d`（最初の安定版1.18.0）、null参照を飛ばす修正が`862bc41`（最初の安定版1.18.4）に含まれることも確認した。
 この履歴だけを根拠に、過去版全体への互換性を宣言しない。
 
-## 次段階のMatrixに渡せる情報
+## 読み取り専用Matrix
 
-Source/Targetの全Shape index/name、同名のCompatibleShapes、exact有無、Target名を占有する全Binding、Binding分類・Broken理由を利用できる。
-BindingごとのComponent参照・ComponentIndex・BindingIndex・実参照先・元のLocal名・fallback後の名・Remap情報も保持する。
-Matrixを作る際も表示はこの一時Snapshotから構築し、独自の永続Mappingデータは導入しない。
+`UI/BlendshapeMatrixViewModel.cs`は既存Analysisから再構築できる非シリアライズの一時View Model。
+Scanner/Readerの判定・公開データは変更しない。セルの基本状態はSynced / Missing / NotAvailable。
+CustomとBrokenは補助情報であり、MissingCount = CompatibleCount - SyncedCountを変更しない。
+
+- `●`: exact同名Syncあり。
+- `○`: compatibleだがexactなし。
+- `△`: Missingに加えて、その同名Target Shapeを有効なcustom Bindingが使用している。別Sourceからのcustom占有も含む。
+- `-`: Targetに同名Shapeなし。別名Mappingがあれば`- C`となり得る。
+- `C`: 関連customあり（Synced/Missing/NotAvailableと併存）。`△`では重複表示を省く。
+- `×`: 選択Sourceと現存Source Shapeへ確実に関連付けられるBrokenあり。
+
+関連付けは2種類を区別する。有効なBindingのTarget名が列名と一致する場合はTarget側占有として表示する。
+選択Sourceを参照し、Source名が列名と一致し、Source参照/Shapeが有効なBindingはSource側の対応として表示する。
+他Sourceの同名文字列だけでSource側の関連付けをしない。解決不能・Source欠落等のBrokenをセルへ推測で割り当てない。
+全custom/other-source/broken Bindingは関連付けの可否にかかわらずRenderer Detailsに残す。
+同じBindingが両方の関連付けに一致してもTooltipには1回だけ表示する。
+
+列はSourceの生のShape順・indexを保持する。SearchはOrdinalIgnoreCaseの部分一致。
+Relevantは少なくとも1行でcompatibleまたは上記関連Bindingがある列、Missingは少なくとも1行でMissing exactとなる列、All Sourceは全列。
+全Rendererの集計値は表示列の絞り込みでは変えない。検索・フィルタ・選択は再Scanしない。
+
+`UI/BlendshapeMatrixView.cs`は固定幅200のRenderer列と112のShape列を描画する。
+単一の縦scroll値を両paneで共有し、横scrollはMatrixとHeaderだけに適用する。通常wheelは縦、Shift+wheelは横。
+Shape名は固定幅でclipし、完全名はHeader Tooltipに出す。記号を主に使い、選択色にはLight/Pro用の色と標準GUIStyleを使う。
+表示範囲にある行・列だけ描画し、GUIContent/Tooltip/DetailsはSnapshot構築時にcacheする。
+フィルタの列indexリストは検索/View変更時のみ再作成する。Repaint時にMA再読取・大規模LINQ・全セル再構築は行わない。
+入力変更や参照削除、Window再有効化でAnalysisとViewをまとめて破棄する。セルはLabelであり書き込みイベントを持たない。
+
+## 次段階の書き込みに必要な設計
+
+MatrixのMissingは追加許可を意味しない。Targetのcustom/other-source/broken占有、複数Component、重複Bindingを再検証し、対象を明示する必要がある。
+書き込み直前に最新MAを再読取し、古いSnapshotのComponent/Binding indexをそのまま使用しない。
+既存Remap保全、重複防止、Undo、Prefab差分、キャンセル/失敗時の扱いを別タスクで設計・検証する。今回の製品には書き込み処理を追加しない。
