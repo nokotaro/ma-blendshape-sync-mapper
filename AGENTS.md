@@ -15,9 +15,10 @@
 - 製品コードと配布Manifestの正本は`Packages/com.nokotaro.blendshape-sync-mapper/`。
 - 既存のModular Avatar Blendshape Sync Componentを唯一のSource of Truthとする。
 - 独自Mapping DB、Serialized Mapping Component、Profile Asset、Runtime Sync Systemを作らない。
-- Windowの選択状態・スクロール位置等の一時状態は保持できる。将来の解析結果はComponentから再構築できる一時スナップショットに限定する。
+- Windowの選択状態・スクロール位置等の一時状態は保持できる。解析結果はComponentから再構築できる一時スナップショットに限定する。
 - EditorコードはEditor限定asmdefに収める。独自Runtime層、Builder、NDMF Passは明示的な要件なしに追加しない。
-- 今回のfoundationはWindow shellまで。ScanやBinding変更は次段階のタスク。
+- 現在は読み取り専用ScanとRenderer一覧まで。製品コードにUndo、AddComponent、Binding書き込み、Prefab変更、Dirty設定を追加しない。
+- Editor Testの一時Mesh/GameObject/Scene/Prefab作成は検証用fixtureに限定し、必ず後片付けする。製品の書き込み機能と混同しない。
 
 ## 編集範囲
 

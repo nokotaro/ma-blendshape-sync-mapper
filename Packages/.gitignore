@@ -3,3 +3,6 @@
 
 !com.nokotaro.blendshape-sync-mapper
 !com.vrchat.core.*/
+
+# Downloaded by the template bootstrap; keep resolved dependencies out of source control.
+/com.vrchat.core.vpm-resolver/

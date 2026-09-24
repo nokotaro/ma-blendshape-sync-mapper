@@ -5,7 +5,11 @@ Modular Avatar Blendshape Syncをまとめて可視化・編集するためのUn
 ## 現在の機能
 
 `Tools > MA Blendshape Sync Mapper`でWindowを開き、Source RendererとTarget Rootを指定できます。
-Rescanは未実装のため無効です。Componentの読み取り・変更やBindingの追加は行いません。
+RescanでTarget Root自身と子孫のSkinnedMeshRendererをInactiveも含めて検索し、Source自身を除外します。
+Rendererごとのcompatible / synced / missing / custom / brokenとHierarchy pathを表示します。行クリックでGameObjectを選択できます。
+SnapshotはWindow内の一時データです。入力変更や参照先削除時にはRescanを促します。
+Missingは同名exact Bindingの不足であり、custom mappingがないことを意味しません。
+Component、Binding、Mesh、Scene、Prefabへの書き込みは行いません。MatrixとBinding編集は未実装です。
 
 ## 対応環境
 

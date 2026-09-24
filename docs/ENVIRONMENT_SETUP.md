@@ -52,8 +52,9 @@ Unity MCPは導入していない。
 ## 検証
 
 - Unityのコンパイル後、Consoleのerror/warningと発生元を確認する。
-- メニューからWindowが開き、Title、Source Renderer、Target Root、無効なRescanが表示されることを確認する。
-- 現段階ではRenderer/Bindingの読み取りも変更も実行しない。
+- メニューからWindowを開き、Source RendererとTarget Rootを指定してRescanする。入力不足・Source MeshなしではScanできない理由を表示する。
+- inactiveを含むRenderer一覧とcompatible/synced/missing/custom/brokenの集計を確認する。Scene、Prefab、MA Bindingを書き換える機能はない。
+- MeshやBindingを外部で編集した後はRescanする。入力変更・参照Object削除時はSnapshotを無効化する。
 - 製品asmdefのincludePlatformsがEditorだけであることを確認する。
 - 製品ファイル・フォルダにUnity生成の.metaがあり、Git追跡対象であることを確認する。
 - 新規UTF-8ファイルのBOM・置換文字、JSON/YAML構文、Git差分、デモ残骸を確認する。
@@ -66,6 +67,36 @@ Unity.exe -batchmode -quit -projectPath . -executeMethod Nokotaro.BlendshapeSync
 
 Window生成確認では`-nographics`を付けない。グラフィックス無効時には表示警告が出る。
 バッチでのWindow生成と対話画面の目視確認は別の検証として記録する。
+
+### ScannerのEditor Test
+
+`Packages/manifest.json`の`testables`に製品Packageを指定済み。Test RunnerのEditModeで
+`Nokotaro.BlendshapeSyncMapper.Tests`を実行する。テストAssemblyだけがAvatar Descriptorのfixture用にSDK DLLを参照する。
+製品AssemblyにはSDK/NDMFの直接参照を追加しない。
+対話Editorで実行する場合は、開いている無題Sceneを先に保存する。Unityは未保存の無題Sceneへの追加Scene作成を許可しない。
+batchmodeでは独立したEditorプロセス内にテスト専用Sceneを作成する。
+
+```powershell
+Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode -testFilter Nokotaro.BlendshapeSyncMapper.Tests -testResults scanner-tests.xml -logFile scanner-tests.log
+```
+
+`-quit`は付けず、Test Runnerの終了を待つ。Windowsでスクリプトから起動する場合は`Start-Process -Wait`で終了コードを取得する。
+ライセンスのIPC接続が許可される通常ユーザー環境で実行する。
+結果XMLとログは成果物として確認し、Repositoryにはcommitしない。
+テストは一時Scene、Mesh、GameObject、Prefabを生成し、終了時に削除する。有償アバターは不要。
+Scene/Prefabの読み取り専用テストでは、Scan・Window描画前後のserialized値、dirty状態、保存ファイルのbyte列を比較する。
+
+### Read-only Scannerの実測結果（2026-09-24）
+
+- Unity 2022.3.22f1 / MA 1.18.7でコンパイル成功、EditMode 16件成功、失敗・skip 0件、Unity終了コード0。
+- inactive、Root自身、Source除外、null Mesh、MAなし、重複exact、空白Local名fallback、custom占有、別Source、Broken各理由を検証。
+- 直接参照/path-only/古いpath/空path/avatar rootなし、元の参照キャッシュ不変、Snapshot無効化、同名GameObject識別を検証。
+- 一時Prefabのserializedデータで複数MA Componentを再現し、統合せず読めることを検証。
+- メニューからWindowを開き、入力指定、Rescan、Repaintを実行。Scene/Prefab/Bindingの不変性を検証。対話操作の目視・行クリックは未検証。
+- 30 Renderer × 各150 Shape、3,000 Bindingの1回のScanは15.73 ms（このPCのbatchmode実測。一般的な性能保証ではない）。
+- 製品・テストコードのコンパイルwarning/errorは0件。今回のフルコンパイルでは外部Packageに39件（MA 36、NDMF 3）の既存warningあり。
+- 最終実行ログにNDMFのNoto Sans CJK JPフォント未検出メッセージ、およびUnityライセンス署名検証Code 10/Access token unavailableがある。ライセンス権利解決後、全テストは正常終了。
+- SDK初期化が変更したプロジェクト設定や自動取得したVPM Resolverは機能の差分に含めない。テスト用Assetは後片付け済み。
 
 ### 初期構築時の実測結果
 

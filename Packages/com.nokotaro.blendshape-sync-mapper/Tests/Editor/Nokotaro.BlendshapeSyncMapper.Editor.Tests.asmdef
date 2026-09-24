@@ -1,0 +1,13 @@
+{
+    "name": "Nokotaro.BlendshapeSyncMapper.Editor.Tests",
+    "rootNamespace": "Nokotaro.BlendshapeSyncMapper.Tests",
+    "references": [
+        "Nokotaro.BlendshapeSyncMapper.Editor",
+        "nadena.dev.modular-avatar.core"
+    ],
+    "includePlatforms": ["Editor"],
+    "overrideReferences": true,
+    "precompiledReferences": ["VRCSDK3A.dll", "VRCSDKBase.dll"],
+    "optionalUnityReferences": ["TestAssemblies"],
+    "autoReferenced": false
+}

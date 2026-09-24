@@ -13,7 +13,7 @@
 | MA Blendshape Sync | https://modular-avatar.nadena.dev/docs/reference/blendshape-sync | Renderer間の連動、連鎖等の制限 |
 | MA GitHub | https://github.com/bdunderscore/modular-avatar/tree/1.18.7 | 採用した安定版の実コード |
 | MA Component | https://github.com/bdunderscore/modular-avatar/blob/1.18.7/Runtime/ModularAvatarBlendshapeSync.cs | Bindings、BlendshapeBinding、RemapCurve |
-| MA Object Reference | https://github.com/bdunderscore/modular-avatar/blob/1.18.7/Runtime/AvatarObjectReference.cs | Get(Component)、Set(GameObject) |
+| MA Object Reference | https://github.com/bdunderscore/modular-avatar/blob/1.18.7/Runtime/AvatarObjectReference.cs | Clone().Get(Component)、avatar root、直接参照優先、内部キャッシュ |
 | MA Assembly | https://github.com/bdunderscore/modular-avatar/blob/1.18.7/Runtime/nadena.dev.modular-avatar.core.asmdef | 実際のAssembly名 |
 | MA Manifest | https://github.com/bdunderscore/modular-avatar/blob/1.18.7/package.json | MA 1.18.7、NDMF推移依存 |
 | MA RemapCurve導入履歴 | https://github.com/bdunderscore/modular-avatar/commit/a49410d | 1.18.0からのデータ構造変更 |
