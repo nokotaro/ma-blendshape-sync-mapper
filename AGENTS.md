@@ -17,9 +17,10 @@
 - 独自Mapping DB、Serialized Mapping Component、Profile Asset、Runtime Sync Systemを作らない。
 - Windowの選択状態・スクロール位置等の一時状態は保持できる。解析結果はComponentから再構築できる一時スナップショットに限定する。
 - EditorコードはEditor限定asmdefに収める。独自Runtime層、Builder、NDMF Passは明示的な要件なしに追加しない。
-- Scan・Matrix選択・Tooltipは読み取り専用。書き込みはDetailの`Add Sync`を明示実行した安全なMissingセル1件へのexact同名Binding追加だけ。
+- Scan・Matrix選択・Tooltip・Bulk Previewは読み取り専用。書き込みはDetailの`Add Sync`、またはPreview確認後の`Add N Safe Missing Syncs`の明示実行時のみ。
 - 書き込みはMA Writerへ集約し、最新Scene/MAの再検証、重複・Custom/OtherSource/Broken競合拒否、Undo/Redo、Prefab Override、失敗時Rollbackを必須とする。既存Binding/Remapを変更しない。
-- 一括追加・削除・修復・Custom編集は未対応。複数MA Componentは選ばず拒否。Scene上のPrefab Instanceは対応し、Prefab Asset直接編集・Prefab Mode・Play Modeは拒否する。
+- Bulkは単件Writerを再利用し、全件preflight後に適用する。全体を1回のUndoにまとめ、途中失敗は全体Rollbackする。故障注入テストでRollbackを検証する。
+- 削除・修復・Custom編集は未対応。複数MA Componentは選ばず拒否。Scene上のPrefab Instanceは対応し、Prefab Asset直接編集・Prefab Mode・Play Modeは拒否する。
 - Editor Testの一時Mesh/GameObject/Scene/Prefab作成は検証用fixtureに限定し、必ず後片付けする。製品の書き込み機能と混同しない。
 
 ## 編集範囲

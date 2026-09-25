@@ -14,7 +14,7 @@ Source RendererとTarget Rootを指定し、Rescanで読み取り専用のSnapsh
 Inactiveを含むTarget Root自身と子孫のSkinnedMeshRendererを検索し、Source Renderer自身を除外する。
 WindowはRenderer × Source BlendShapeのMatrixとRenderer単位の集計・Detailsを表示し、行クリックでは選択行のUI stateとSelection.activeGameObjectだけを変更する。
 セルクリックは選択のみ。DetailのAdd Syncから安全なMissingセル1件のexact同名Bindingだけを追加する。
-一括追加、既存Binding更新・削除・修復、Remap編集は未実装。
+安全なMissing全件はPreview確認後に一括追加できる。既存Binding更新・削除・修復、Remap編集は未実装。
 
 ## 責務分割
 
@@ -149,4 +149,24 @@ FlushUndoRecordObjectsで確定し、次操作とGroupを分離する。例外�
 正常なScene dirtyはUnity Undo経由で管理し、Scan/選択/TooltipではDirtyを設定しない。
 成功後とUndo/Redoイベント後はSnapshotを再構築し、RendererとShape名による選択を復元する。Missing filterでは追加済み列が非表示になる場合も選択Detailは保持する。
 
-一括追加へ進む前には対象集合のレビュー、競合の説明、全体/個別Rollback方針、Undo Group粒度、途中キャンセルを別途設計する。
+## Safe Bulk Add
+
+`BulkAddPreview`はAnalysis Snapshotから再構築する非シリアライズの一時データ。対象はSearch/Viewとは独立した、Scan全体のMissing exact同名セル。
+Renderer階層順、Source Shape index順で収集し、Renderer + Shape名で重複を除く。既存Bindingの順序を変更せず、新規分を末尾へ追加する。
+
+- Safe: 単件WriterのCheckSelectionが許可するMissing。同名両Shapeがあり、exact・Custom・OtherSource競合がなく、Renderer全体にBroken/参照診断がなく、Componentが0または1個で、編集可能な同一Avatar内のScene Object/Prefab Instance。
+- Require Review: MissingだがWriterが追加を許可しないもの。候補ごとにWriterの理由を表示し、自動修復・上書きしない。
+- Missing = Safe + Review。Custom/Brokenの全Binding件数とは異なり、ここではMissing exactセルを数える。BrokenだけでCompatibleがないRendererは候補に含まず、従来のDetailsで診断する。
+
+WindowはRescan時にPreviewを準備し、件数を表示する。`Review Safe Changes`でRenderer別のShape/分類/除外理由を確認した後、`Add N Safe Missing Syncs`を明示実行する。MVPはSafe全件方式で個別checkboxは設けない。Previewを開く・戻る・Searchを変える操作は書き込まない。
+
+`BlendshapeSyncBulkAdd`は次の二段階処理だけを所有する。MA List・Binding初期値・Remap生成は従来Writerに集約する。
+
+1. 全Safe候補についてWriter.Preflightで現在のSource/Root/Shape/参照/競合/Component同一性を検証。1件でも変化があれば書き込み0件で終了し、再Scan後のPreview再確認を要求する。
+2. 外側Undo Groupを開始し、Writer.TryAddExactSyncを順次実行。各追加も同じPreflightを通す。全件成功でGroupをCollapseし、Component作成を含む全追加を1回のUndo/Redoにする。途中拒否・例外はRevertAllDownToGroupで全体を戻す。Rollback自体の失敗も明示表示する。
+
+同じRendererへの後続追加では、この呼び出し内でWriter自身が作成したComponentだけを再利用する。元SnapshotのComponentが外部から変わった場合は引き続き拒否する。単件APIはこの例外を持たない。
+故障注入はinternal overloadの呼び出し単位delegateで行う。N件追加後に例外を発生させ、作成Component・既存Binding・Prefab Override・直前のユーザーUndoが保持/復元されることをテストする。製品UIはdelegateを渡さない。
+MAのOnValidateはUndo復元時に既存Remapも正規化するため、失敗時はWriterが退避した既存Binding/参照/CurveのコピーをUndo後に復元する。これはトランザクション内だけの一時退避であり、永続Mapping DBではない。成功後の通常Undo/RedoはUnity/MA標準の挙動に従う。
+
+処理は同期実行。現段階ではProgress/Cancelは設けない。完了・失敗後は再Scanし、成功件数と残るReview件数を表示する。Filterで追加済み列が消えても結果メッセージを保持する。Undo/Redoでも再Scanする。

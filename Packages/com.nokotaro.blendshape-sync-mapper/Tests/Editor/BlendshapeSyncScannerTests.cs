@@ -423,8 +423,8 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
         [Test]
         public void ReaderHandlesMultipleSerializedComponentsWithoutMergingThem()
         {
-            var source = Renderer("Body", "A");
-            var target = Renderer("Jacket", "A");
+            var source = Renderer("Body", "A", "B");
+            var target = Renderer("Jacket", "A", "B");
             Sync(target, Binding(source, "A"));
             SaveMeshes();
             var path = assetFolder + "/Multiple.prefab";
@@ -456,6 +456,10 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
             var instanceSource = instance.transform.Find("Body").GetComponent<SkinnedMeshRenderer>();
             var instanceTarget = instance.transform.Find("Jacket").GetComponent<SkinnedMeshRenderer>();
             Assert.That(Add(Request(instanceSource, instanceTarget)).Status, Is.EqualTo(AddSyncStatus.MultipleComponents));
+            var preview = BulkAddPreview.Create(BlendshapeSyncScanner.Scan(instanceSource, instanceTarget.gameObject));
+            Assert.That(preview.SafeCount, Is.Zero);
+            Assert.That(preview.ReviewCount, Is.EqualTo(1));
+            Assert.That(preview.Candidates.Single().Eligibility.Status, Is.EqualTo(AddSyncStatus.MultipleComponents));
         }
     }
 }

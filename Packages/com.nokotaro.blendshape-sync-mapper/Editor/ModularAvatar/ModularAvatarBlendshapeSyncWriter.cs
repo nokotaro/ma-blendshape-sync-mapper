@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Nokotaro.BlendshapeSyncMapper.Analysis;
 using nadena.dev.modular_avatar.core;
@@ -37,6 +38,34 @@ namespace Nokotaro.BlendshapeSyncMapper.ModularAvatar
     {
         private const string UndoName = "Add MA Blendshape Sync Binding";
         private static AddSyncResult Result(AddSyncStatus status, string message) => new AddSyncResult(status, message);
+
+        // MA OnValidate runs during Undo and may normalize old curves. Restore the exact
+        // pre-operation data after a failed transaction, without invoking OnValidate again.
+        internal static Action CaptureRollbackState(IEnumerable<ExactSyncRequest> requests)
+        {
+            var saved = new Dictionary<ModularAvatarBlendshapeSync, BlendshapeBinding[]>();
+            foreach (var request in requests)
+            {
+                var sync = request.Row.Renderer.GetComponent<ModularAvatarBlendshapeSync>();
+                if (sync == null || saved.ContainsKey(sync)) continue;
+                saved.Add(sync, sync.Bindings.Select(binding => {
+                    binding.ReferenceMesh = binding.ReferenceMesh?.Clone();
+                    if (binding.RemapCurve != null)
+                        binding.RemapCurve = new AnimationCurve(binding.RemapCurve.keys) {
+                            preWrapMode = binding.RemapCurve.preWrapMode, postWrapMode = binding.RemapCurve.postWrapMode
+                        };
+                    return binding;
+                }).ToArray());
+            }
+            return () => {
+                foreach (var pair in saved)
+                {
+                    if (pair.Key == null) throw new InvalidOperationException("Original MA Component was not restored by Undo.");
+                    pair.Key.Bindings.Clear();
+                    pair.Key.Bindings.AddRange(pair.Value);
+                }
+            };
+        }
 
         public static AddSyncResult CheckSelection(ExactSyncRequest request)
         {
@@ -98,10 +127,14 @@ namespace Nokotaro.BlendshapeSyncMapper.ModularAvatar
             return Result(AddSyncStatus.Success, "Available, not synced. Add Sync adds exactly one binding.");
         }
 
-        public static AddSyncResult TryAddExactSync(ExactSyncRequest request,
+        public static AddSyncResult Preflight(ExactSyncRequest request,
             SkinnedMeshRenderer currentSource, GameObject currentRoot)
+            => Preflight(request, currentSource, currentRoot, null);
+
+        private static AddSyncResult Preflight(ExactSyncRequest request,
+            SkinnedMeshRenderer currentSource, GameObject currentRoot,
+            Dictionary<SkinnedMeshRenderer, Component> created)
         {
-            var group = -1;
             try
             {
                 if (request?.Snapshot == null || request.Row == null || string.IsNullOrEmpty(request.Shape))
@@ -121,19 +154,40 @@ namespace Nokotaro.BlendshapeSyncMapper.ModularAvatar
                     return Result(AddSyncStatus.SetupChanged, "The setup changed since the last scan. Please rescan.");
                 var context = CheckContext(source, target);
                 if (!context.Succeeded) return context;
-                var reference = new AvatarObjectReference();
-                reference.Set(source.gameObject);
-
                 var fresh = BlendshapeSyncScanner.Scan(source, target.gameObject).Renderers.First(r => r.Renderer == target);
                 var check = CheckRow(fresh, request.Shape);
                 if (!check.Succeeded) return check;
-                if (!fresh.Components.SequenceEqual(request.Row.Components))
+                var ownComponent = request.Row.Components.Count == 0 && fresh.Components.Count == 1
+                    && created != null && created.TryGetValue(target, out var owned) && fresh.Components[0] == owned;
+                if (!fresh.Components.SequenceEqual(request.Row.Components) && !ownComponent)
                     return Result(AddSyncStatus.SetupChanged, "MA Components changed since the last scan. Please rescan.");
                 var originalCheck = CheckRow(request.Row, request.Shape);
                 if (!originalCheck.Succeeded) return originalCheck;
                 var sync = target.GetComponent<ModularAvatarBlendshapeSync>();
                 if (sync != null && (sync.hideFlags & HideFlags.NotEditable) != 0)
                     return Result(AddSyncStatus.UnsupportedObject, "MA Component is not editable.");
+                return Result(AddSyncStatus.Success, "Safe to add.");
+            }
+            catch (Exception exception) { return Result(AddSyncStatus.Failed, exception.Message); }
+        }
+
+        public static AddSyncResult TryAddExactSync(ExactSyncRequest request,
+            SkinnedMeshRenderer currentSource, GameObject currentRoot)
+            => TryAddExactSync(request, currentSource, currentRoot, null);
+
+        internal static AddSyncResult TryAddExactSync(ExactSyncRequest request,
+            SkinnedMeshRenderer currentSource, GameObject currentRoot,
+            Dictionary<SkinnedMeshRenderer, Component> created)
+        {
+            var group = -1;
+            try
+            {
+                var check = Preflight(request, currentSource, currentRoot, created);
+                if (!check.Succeeded) return check;
+                var target = request.Row.Renderer;
+                var sync = target.GetComponent<ModularAvatarBlendshapeSync>();
+                var reference = new AvatarObjectReference();
+                reference.Set(currentSource.gameObject);
 
                 // Match MA 1.18.7 OnValidate's normalized default, only for the new binding.
                 // Do not invoke OnValidate / SerializedObject.Apply: they normalize existing curves too.
@@ -149,7 +203,11 @@ namespace Nokotaro.BlendshapeSyncMapper.ModularAvatar
                 Undo.IncrementCurrentGroup();
                 group = Undo.GetCurrentGroup();
                 Undo.SetCurrentGroupName(UndoName);
-                if (sync == null) sync = Undo.AddComponent<ModularAvatarBlendshapeSync>(target.gameObject);
+                if (sync == null)
+                {
+                    sync = Undo.AddComponent<ModularAvatarBlendshapeSync>(target.gameObject);
+                    if (created != null) created[target] = sync;
+                }
                 if (sync == null) throw new InvalidOperationException("Could not create MA Blendshape Sync.");
                 Undo.RecordObject(sync, UndoName);
                 sync.Bindings.Add(new BlendshapeBinding {

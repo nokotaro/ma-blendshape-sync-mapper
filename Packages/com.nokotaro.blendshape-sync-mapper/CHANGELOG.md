@@ -2,6 +2,9 @@
 
 ## 0.1.0 - Unreleased
 
+- Add grouped Safe / Require Review bulk preview, independent of Matrix search/filter.
+- Reuse the single-cell Writer for full preflight and sequential additions, grouped Undo/Redo and all-or-nothing rollback.
+- Test mid-operation fault injection, component reuse, stale previews, ordering and Prefab override save/reload.
 - Add explicit single-cell Add Sync with live validation, duplicate/conflict rejection, Undo/Redo and Prefab instance overrides.
 - Preserve existing bindings/remap curves; use MA 1.18.7 normalized defaults only for the new exact binding.
 - Select cells without mutation; rescan after writes and Undo/Redo while retaining Renderer/Shape selection.

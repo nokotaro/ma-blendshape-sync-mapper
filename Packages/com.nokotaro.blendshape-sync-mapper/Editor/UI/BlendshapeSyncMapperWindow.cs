@@ -21,6 +21,11 @@ namespace Nokotaro.BlendshapeSyncMapper
         private MatrixColumnFilter columnFilter;
         private static readonly string[] FilterNames = { "Relevant", "All Source", "Missing" };
         private string scanError;
+        private BulkAddPreview bulkPreview;
+        private bool reviewingBulk, writingBulk;
+        private Vector2 previewScroll;
+        private BulkAddResult bulkResult;
+        public BulkAddPreview BulkPreview => bulkPreview;
         private AddSyncResult writeResult;
         private AddSyncResult selectionCheck;
         private int checkedRow = -1, checkedColumn = -1;
@@ -42,7 +47,7 @@ namespace Nokotaro.BlendshapeSyncMapper
 
         private void OnUndoRedo()
         {
-            if (analysis != null) Rescan();
+            if (analysis != null && !writingBulk) Rescan();
         }
 
         [MenuItem("Tools/MA Blendshape Sync Mapper")]
@@ -80,6 +85,13 @@ namespace Nokotaro.BlendshapeSyncMapper
                 $"{analysis.CompatibleCount} compatible / {analysis.SyncedCount} synced / {analysis.MissingCount} missing",
                 EditorStyles.wordWrappedLabel);
             EditorGUILayout.LabelField($"{analysis.CustomCount} custom / {analysis.BrokenCount} broken");
+            EditorGUILayout.LabelField($"Missing: {bulkPreview.MissingCount} / Safe: {bulkPreview.SafeCount} / Require review: {bulkPreview.ReviewCount}");
+            if (bulkResult != null)
+                EditorGUILayout.HelpBox(bulkResult.Message + $"\n{bulkPreview.ReviewCount} mappings still require review.",
+                    bulkResult.Succeeded ? MessageType.Info : MessageType.Warning);
+            if (reviewingBulk) { DrawBulkPreview(); return; }
+            using (new EditorGUI.DisabledScope(bulkPreview.MissingCount == 0))
+                if (GUILayout.Button("Review Safe Changes")) { reviewingBulk = true; GUIUtility.ExitGUI(); }
             EditorGUILayout.LabelField("Select one cell, then Add Sync in Details. Rescan after external changes. Missing includes custom-occupied targets.", EditorStyles.wordWrappedMiniLabel);
             if (analysis.Renderers.Count == 0)
             {
@@ -120,6 +132,7 @@ namespace Nokotaro.BlendshapeSyncMapper
             try
             {
                 analysis = BlendshapeSyncScanner.Scan(sourceRenderer, targetRoot);
+                bulkPreview = BulkAddPreview.Create(analysis);
                 matrix = new BlendshapeMatrixView(analysis);
                 matrix.SetFilter(search, columnFilter);
                 matrix.ScrollPosition = scroll;
@@ -146,6 +159,45 @@ namespace Nokotaro.BlendshapeSyncMapper
             if (analysis == null || matrix == null || matrix.SelectedRow < 0 || matrix.SelectedColumn < 0) return null;
             return new ExactSyncRequest(analysis, matrix.Model.Rows[matrix.SelectedRow].RendererState,
                 matrix.Model.Columns[matrix.SelectedColumn].Name);
+        }
+
+        private void DrawBulkPreview()
+        {
+            EditorGUILayout.LabelField("Bulk Add Preview", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox("Includes all missing exact same-name mappings in the scan, regardless of Search / View. Only Safe entries will be added. Require Review entries are left unchanged.", MessageType.Info);
+            if (GUILayout.Button("Back to Matrix")) { reviewingBulk = false; GUIUtility.ExitGUI(); }
+            using (new EditorGUI.DisabledScope(bulkPreview.SafeCount == 0))
+                if (GUILayout.Button($"Add {bulkPreview.SafeCount} Safe Missing Syncs"))
+                { AddSafeSyncs(); GUIUtility.ExitGUI(); }
+            previewScroll = EditorGUILayout.BeginScrollView(previewScroll);
+            BlendshapeSyncRendererState previous = null;
+            foreach (var candidate in bulkPreview.Candidates)
+            {
+                var row = candidate.Request.Row;
+                if (row != previous)
+                {
+                    EditorGUILayout.Space();
+                    EditorGUILayout.LabelField(row.HierarchyPath, EditorStyles.boldLabel);
+                    previous = row;
+                }
+                EditorGUILayout.LabelField(candidate.Request.Shape + (candidate.Eligibility.Succeeded ? " — Safe" : " — Require Review"),
+                    EditorStyles.wordWrappedLabel);
+                if (!candidate.Eligibility.Succeeded)
+                    EditorGUILayout.LabelField(candidate.Eligibility.Message, EditorStyles.wordWrappedMiniLabel);
+            }
+            EditorGUILayout.EndScrollView();
+        }
+
+        public BulkAddResult AddSafeSyncs()
+        {
+            BulkAddResult result;
+            writingBulk = true;
+            try { result = BlendshapeSyncBulkAdd.Execute(bulkPreview, sourceRenderer, targetRoot); }
+            finally { writingBulk = false; }
+            Rescan();
+            bulkResult = result;
+            Repaint();
+            return result;
         }
 
         private void DrawSelectedMapping()
@@ -212,6 +264,9 @@ namespace Nokotaro.BlendshapeSyncMapper
         private void InvalidateSnapshot(string message)
         {
             analysis = null;
+            bulkPreview = null;
+            bulkResult = null;
+            reviewingBulk = false;
             matrix = null;
             detailScroll = Vector2.zero;
             scanError = null;

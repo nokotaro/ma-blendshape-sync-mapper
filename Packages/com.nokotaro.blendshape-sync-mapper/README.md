@@ -18,7 +18,10 @@ Renderer行を選択するとDetailsに全体集計、Hierarchy path、Instance 
 書き込み直前に最新Scene/MAを再検証し、重複・Custom/別Source占有・Renderer内Broken・複数Componentを拒否します。
 同じAvatar内のScene Object/Prefab Instanceに対応し、Undo/RedoとPrefab Overrideを記録します。Prefab Asset直接編集・Prefab Mode・Play Modeは対象外です。
 成功後とUndo/Redo後は自動再Scanします。既存Binding/Remapは変更しません。Scan・選択・Tooltipでは書き込みません。
-一括追加、Binding変更・削除、Broken修復は未実装です。
+`Review Safe Changes`でScan全体のMissingをSafe / Require Reviewに分類してRenderer別に確認できます。Search/Viewの絞り込みは一括追加範囲を変更しません。
+Previewの`Add N Safe Missing Syncs`でSafe全件を追加します。全候補の最新状態をpreflightし、状態変化があれば書き込み0件でPreview更新を要求します。
+全追加は1回のUndo/Redoにまとまり、途中失敗は全体Rollbackします。Require Reviewの競合は変更せず残します。
+Previewは非永続データで、確認画面を開くだけでは書き込みません。Binding変更・削除、Broken修復は未実装です。
 
 ## 対応環境
 
