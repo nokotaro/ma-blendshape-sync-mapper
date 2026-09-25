@@ -63,6 +63,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Configure custom domain
+        run: echo "vpm.nokotaro.com" > ${{ env.listPublishDirectory }}/CNAME
+
       # Prepare for GitHub Pages deployment
       - name: Setup Pages
         uses: actions/configure-pages@v5

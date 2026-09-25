@@ -31,7 +31,9 @@ Previewは非永続データで、確認画面を開くだけでは書き込み�
 
 既存のMA Blendshape Sync Componentが唯一のSource of Truthです。独自のMapping DBやProfile Assetは作りません。
 
-VPM Packageとして配布予定です。現時点では公開済みRelease・VCC追加用Listingはありません。
+VPM Repository: https://vpm.nokotaro.com/index.json
+
+VPM Packageとして配布予定です。Beta版のListingは上記Repository URLからVCCへ追加します。
 package.jsonのダウンロードURLは将来の0.1.0 Release用で、まだ利用できません。
 
 開発用の導入方法は[環境構築手順](https://github.com/nokotaro/ma-blendshape-sync-mapper/blob/main/docs/ENVIRONMENT_SETUP.md)を参照してください。
