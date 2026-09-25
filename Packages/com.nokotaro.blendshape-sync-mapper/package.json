@@ -1,7 +1,7 @@
 {
     "name": "com.nokotaro.blendshape-sync-mapper",
     "displayName": "MA Blendshape Sync Mapper",
-    "version": "0.1.0",
+    "version": "0.1.0-beta.1",
     "unity": "2022.3",
     "description": "A bulk visualization and editing tool for Modular Avatar Blendshape Sync components.",
     "author": {
@@ -12,7 +12,7 @@
     "licensesUrl": "https://github.com/nokotaro/ma-blendshape-sync-mapper/blob/main/Packages/com.nokotaro.blendshape-sync-mapper/LICENSE.md",
     "documentationUrl": "https://github.com/nokotaro/ma-blendshape-sync-mapper#readme",
     "changelogUrl": "https://github.com/nokotaro/ma-blendshape-sync-mapper/blob/main/Packages/com.nokotaro.blendshape-sync-mapper/CHANGELOG.md",
-    "url": "https://github.com/nokotaro/ma-blendshape-sync-mapper/releases/download/0.1.0/com.nokotaro.blendshape-sync-mapper-0.1.0.zip",
+    "url": "https://github.com/nokotaro/ma-blendshape-sync-mapper/releases/download/0.1.0-beta.1/com.nokotaro.blendshape-sync-mapper-0.1.0-beta.1.zip",
     "vpmDependencies": {
         "nadena.dev.modular-avatar": ">=1.18.7 <2.0.0-a"
     }

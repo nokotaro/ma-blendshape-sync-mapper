@@ -1,7 +1,7 @@
 # MA Blendshape Sync Mapper
 
 VRChat Avatar向けのModular Avatar Blendshape Syncを、一括で可視化・編集するUnity Editor Toolです。
-**開発中・正式Release前**です。ScanとMatrix・Renderer Details、安全なMissingへの単件追加とPreview付き一括追加を実装しています。
+**Status: Beta** (`0.1.0-beta.1`)
 
 ## 対象と目的
 
@@ -29,13 +29,17 @@ Bulkでは全候補のpreflight後に追加し、途中失敗は全体Rollback�
 Safeは単件Writerと同じ安全条件を満たすMissing、Require Reviewは競合等で追加禁止のMissingです。Reviewは自動変更せず残します。
 Binding更新・削除・Custom編集・Broken修復は未実装です。
 
+主な用途は、別アバター向け衣装を変換した後など、多数のSkinnedMeshRendererに対するMA Blendshape Sync設定を確認・追加することです。特定のアバターや衣装製品は必須ではありません。
+
 ## 環境と配布
 
 - Unity **2022.3.22f1** / VRChat SDK Avatars
-- Modular Avatar依存。検証環境・対応下限は1.18.7。
+- Modular Avatar >= 1.18.7 < 2.0.0-a（検証版: 1.18.7）
 - Package ID: `com.nokotaro.blendshape-sync-mapper`
 - Editor-only VPM Packageとして配布予定。UdonSharp Runtimeや独自NDMF Passはありません。
-- 公開済みRelease・VCC追加用Listingはまだありません。
+- Beta版のVCC ListingはGitHub Pagesで提供します。
+
+VCCでBeta版を表示するには、Settings → Packages → Pre-Release Packages → Show Pre-Release Packages を有効にしてください。
 
 ## 開発
 

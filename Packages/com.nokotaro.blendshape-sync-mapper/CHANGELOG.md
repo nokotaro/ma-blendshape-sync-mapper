@@ -1,10 +1,14 @@
 # Changelog
 
-## 0.1.0 - Unreleased
+## 0.1.0-beta.1
 
-- Add grouped Safe / Require Review bulk preview, independent of Matrix search/filter.
-- Reuse the single-cell Writer for full preflight and sequential additions, grouped Undo/Redo and all-or-nothing rollback.
-- Test mid-operation fault injection, component reuse, stale previews, ordering and Prefab override save/reload.
+- First beta release of the Editor-only VPM package.
+- Renderer × BlendShape Matrix with Missing, Custom, and Broken visualization.
+- Safe exact same-name Single Sync and Safe Bulk Add with review preview.
+- Undo / Redo and Prefab Instance override support.
+- Existing Modular Avatar Blendshape Sync remains the only source of truth.
+
+This beta may change behavior and APIs before a stable release. Custom mappings and broken mappings are reported but are not automatically changed or repaired.
 - Add explicit single-cell Add Sync with live validation, duplicate/conflict rejection, Undo/Redo and Prefab instance overrides.
 - Preserve existing bindings/remap curves; use MA 1.18.7 normalized defaults only for the new exact binding.
 - Select cells without mutation; rescan after writes and Undo/Redo while retaining Renderer/Shape selection.
