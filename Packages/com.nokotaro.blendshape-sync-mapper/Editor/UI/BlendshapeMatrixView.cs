@@ -20,6 +20,7 @@ namespace Nokotaro.BlendshapeSyncMapper.UI
         private bool darkSkin;
         public IReadOnlyList<int> VisibleColumns { get; private set; }
         public int SelectedRow { get; private set; } = -1;
+        public int SelectedColumn { get; private set; } = -1;
         public Vector2 ScrollPosition { get; set; }
         public BlendshapeMatrixViewModel Model => model;
 
@@ -75,8 +76,16 @@ namespace Nokotaro.BlendshapeSyncMapper.UI
         {
             if (row < 0 || row >= model.Rows.Count) return;
             SelectedRow = row;
+            SelectedColumn = -1;
             var renderer = model.Rows[row].RendererState.Renderer;
             if (renderer != null) Selection.activeGameObject = renderer.gameObject;
+        }
+
+        public void SelectCell(int row, int column)
+        {
+            if (row < 0 || row >= model.Rows.Count || column < 0 || column >= model.Columns.Count) return;
+            SelectRow(row);
+            SelectedColumn = column;
         }
 
         public GUIContent SelectedDetailContent => SelectedRow < 0 ? NoSelection : details[SelectedRow];
@@ -139,7 +148,13 @@ namespace Nokotaro.BlendshapeSyncMapper.UI
                         ? (darkSkin ? new Color(.2f, .36f, .5f) : new Color(.65f, .8f, .94f))
                         : new Color(0, 0, 0, r % 2 == 0 ? .07f : .02f));
                 for (var c = firstColumn; c < lastColumn; c++)
-                    GUI.Label(new Rect(c * ColumnWidth - scroll.x, y, ColumnWidth, RowHeight), cells[r, VisibleColumns[c]], cellStyle);
+                {
+                    var column = VisibleColumns[c];
+                    var cellRect = new Rect(c * ColumnWidth - scroll.x, y, ColumnWidth, RowHeight);
+                    if (r == SelectedRow && column == SelectedColumn)
+                        GUI.Box(cellRect, GUIContent.none, EditorStyles.helpBox);
+                    if (GUI.Button(cellRect, cells[r, column], cellStyle)) SelectCell(r, column);
+                }
             }
             if (VisibleColumns.Count == 0) GUI.Label(new Rect(8, 4, matrixWidth - 8, 44),
                 model.Columns.Count == 0 ? "Source Renderer has no BlendShapes." : "No columns match this search / view.", EditorStyles.wordWrappedLabel);

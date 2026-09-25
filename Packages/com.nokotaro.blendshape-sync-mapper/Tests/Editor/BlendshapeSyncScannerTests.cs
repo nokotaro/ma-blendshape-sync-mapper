@@ -452,6 +452,10 @@ namespace Nokotaro.BlendshapeSyncMapper.Tests
             Assert.That(row.Bindings.Select(b => b.Binding.ComponentIndex), Is.EqualTo(new[] { 0, 1 }));
             Assert.That(row.SyncedCount, Is.EqualTo(1), "Two exact bindings must not count a shape twice.");
             CollectionAssert.AreEqual(before, File.ReadAllBytes(path));
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            var instanceSource = instance.transform.Find("Body").GetComponent<SkinnedMeshRenderer>();
+            var instanceTarget = instance.transform.Find("Jacket").GetComponent<SkinnedMeshRenderer>();
+            Assert.That(Add(Request(instanceSource, instanceTarget)).Status, Is.EqualTo(AddSyncStatus.MultipleComponents));
         }
     }
 }

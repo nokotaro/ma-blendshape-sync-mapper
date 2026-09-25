@@ -23,6 +23,15 @@
 
 ## 開発運用の補助資料
 
+単一追加で追加確認した一次資料（2026-09-25）:
+
+- https://github.com/bdunderscore/modular-avatar/blob/1.18.7/Editor/Inspector/BlendshapeSyncEditor.cs : OfferBinding、直接List追加、InspectorのCurve補完。
+- https://github.com/bdunderscore/modular-avatar/blob/1.18.7/Editor/Inspector/BlendshapeSelectTreeView.cs : 新規BindingのLocalBlendshape未設定。
+- https://docs.unity3d.com/2022.3/Documentation/ScriptReference/Undo.RecordObject.html : Undo差分記録とPrefab変更記録の併用。
+- https://docs.unity3d.com/2022.3/Documentation/ScriptReference/Undo.AddComponent.html : Component作成のUndo。
+- https://docs.unity3d.com/2022.3/Documentation/ScriptReference/Undo.RevertAllDownToGroup.html : 失敗時のGroup rollback。
+- https://docs.unity3d.com/2022.3/Documentation/ScriptReference/PrefabUtility.RecordPrefabInstancePropertyModifications.html : 直接変更後のOverride記録。
+
 https://github.com/sechiro/VRCUdonSkills-for-Codex/tree/1a19d149b1730cae4dbde9dd5d9a4e4aa50d0c0f
 
 SkillはVRChat/Unityの公式仕様ではない。採用範囲をAGENTS.mdへ移して管理する。

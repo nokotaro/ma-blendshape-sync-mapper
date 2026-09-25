@@ -1,6 +1,7 @@
 using System;
 using Nokotaro.BlendshapeSyncMapper.Analysis;
 using Nokotaro.BlendshapeSyncMapper.UI;
+using Nokotaro.BlendshapeSyncMapper.ModularAvatar;
 using UnityEditor;
 using UnityEngine;
 
@@ -20,6 +21,10 @@ namespace Nokotaro.BlendshapeSyncMapper
         private MatrixColumnFilter columnFilter;
         private static readonly string[] FilterNames = { "Relevant", "All Source", "Missing" };
         private string scanError;
+        private AddSyncResult writeResult;
+        private AddSyncResult selectionCheck;
+        private int checkedRow = -1, checkedColumn = -1;
+        private string selectedSourcePath;
         private string snapshotMessage = "Press Rescan to analyze the current setup.";
 
         public BlendshapeSyncAnalysis Analysis => analysis;
@@ -29,6 +34,15 @@ namespace Nokotaro.BlendshapeSyncMapper
         {
             minSize = new Vector2(680, 660);
             InvalidateSnapshot("Press Rescan to analyze the current setup.");
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            Undo.undoRedoPerformed += OnUndoRedo;
+        }
+
+        private void OnDisable() { Undo.undoRedoPerformed -= OnUndoRedo; }
+
+        private void OnUndoRedo()
+        {
+            if (analysis != null) Rescan();
         }
 
         [MenuItem("Tools/MA Blendshape Sync Mapper")]
@@ -66,7 +80,7 @@ namespace Nokotaro.BlendshapeSyncMapper
                 $"{analysis.CompatibleCount} compatible / {analysis.SyncedCount} synced / {analysis.MissingCount} missing",
                 EditorStyles.wordWrappedLabel);
             EditorGUILayout.LabelField($"{analysis.CustomCount} custom / {analysis.BrokenCount} broken");
-            EditorGUILayout.LabelField("Read-only snapshot. Rescan after external changes. Missing includes custom-occupied targets.", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("Select one cell, then Add Sync in Details. Rescan after external changes. Missing includes custom-occupied targets.", EditorStyles.wordWrappedMiniLabel);
             if (analysis.Renderers.Count == 0)
             {
                 EditorGUILayout.HelpBox("No SkinnedMeshRenderers found under Target Root.", MessageType.Info);
@@ -82,6 +96,7 @@ namespace Nokotaro.BlendshapeSyncMapper
             EditorGUILayout.LabelField("C Related custom mapping   × Related broken mapping   |   Hover cells for binding / remap details",
                 EditorStyles.wordWrappedMiniLabel);
             matrix.Draw(GUILayoutUtility.GetRect(0, 10000, 120, 10000, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true)));
+            DrawSelectedMapping();
             EditorGUILayout.LabelField("Selected Renderer Details", EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(matrix.SelectedRow < 0))
                 if (GUILayout.Button("Select in Hierarchy")) matrix.SelectRow(matrix.SelectedRow);
@@ -94,6 +109,11 @@ namespace Nokotaro.BlendshapeSyncMapper
 
         public void Rescan()
         {
+            var selectedTarget = matrix != null && matrix.SelectedRow >= 0
+                ? matrix.Model.Rows[matrix.SelectedRow].RendererState.Renderer : null;
+            var selectedColumn = matrix?.SelectedColumn ?? -1;
+            var selectedName = selectedColumn >= 0 ? matrix.Model.Columns[selectedColumn].Name : null;
+            var scroll = matrix?.ScrollPosition ?? Vector2.zero;
             InvalidateSnapshot("Press Rescan to analyze the current setup.");
             var error = BlendshapeSyncScanner.GetInputError(sourceRenderer, targetRoot);
             if (error != null) { scanError = error; return; }
@@ -102,6 +122,15 @@ namespace Nokotaro.BlendshapeSyncMapper
                 analysis = BlendshapeSyncScanner.Scan(sourceRenderer, targetRoot);
                 matrix = new BlendshapeMatrixView(analysis);
                 matrix.SetFilter(search, columnFilter);
+                matrix.ScrollPosition = scroll;
+                for (var r = 0; r < analysis.Renderers.Count; r++)
+                {
+                    if (analysis.Renderers[r].Renderer != selectedTarget) continue;
+                    matrix.SelectRow(r);
+                    for (var c = 0; c < matrix.Model.Columns.Count; c++)
+                        if (matrix.Model.Columns[c].Name == selectedName) { matrix.SelectCell(r, c); break; }
+                    break;
+                }
             }
             catch (Exception exception)
             {
@@ -110,6 +139,54 @@ namespace Nokotaro.BlendshapeSyncMapper
                 scanError = $"Scan failed: {exception.GetType().Name}: {exception.Message}";
             }
             Repaint();
+        }
+
+        private ExactSyncRequest SelectedRequest()
+        {
+            if (analysis == null || matrix == null || matrix.SelectedRow < 0 || matrix.SelectedColumn < 0) return null;
+            return new ExactSyncRequest(analysis, matrix.Model.Rows[matrix.SelectedRow].RendererState,
+                matrix.Model.Columns[matrix.SelectedColumn].Name);
+        }
+
+        private void DrawSelectedMapping()
+        {
+            var request = SelectedRequest();
+            if (request != null)
+            {
+                EditorGUILayout.LabelField("Selected Mapping", EditorStyles.boldLabel);
+                if (checkedRow != matrix.SelectedRow || checkedColumn != matrix.SelectedColumn || selectionCheck == null)
+                {
+                    if (checkedRow >= 0 && (checkedRow != matrix.SelectedRow || checkedColumn != matrix.SelectedColumn))
+                        writeResult = null;
+                    checkedRow = matrix.SelectedRow;
+                    checkedColumn = matrix.SelectedColumn;
+                    selectionCheck = ModularAvatarBlendshapeSyncWriter.CheckSelection(request);
+                    selectedSourcePath = AnimationUtility.CalculateTransformPath(sourceRenderer.transform, null);
+                }
+                EditorGUILayout.LabelField($"Source: {selectedSourcePath} / {request.Shape}\nTarget: {request.Row.HierarchyPath} / {request.Shape}",
+                    EditorStyles.wordWrappedLabel);
+                var check = selectionCheck;
+                EditorGUILayout.LabelField(matrix.Model.Rows[matrix.SelectedRow].Cells[matrix.SelectedColumn].StatusText,
+                    EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.LabelField(check.Message, EditorStyles.wordWrappedMiniLabel);
+                if (check.Succeeded && GUILayout.Button("Add Sync"))
+                {
+                    AddSelectedSync();
+                    GUIUtility.ExitGUI();
+                }
+            }
+            if (writeResult != null)
+                EditorGUILayout.HelpBox(writeResult.Message, writeResult.Succeeded ? MessageType.Info : MessageType.Warning);
+        }
+
+        public AddSyncResult AddSelectedSync()
+        {
+            var result = ModularAvatarBlendshapeSyncWriter.TryAddExactSync(SelectedRequest(), sourceRenderer, targetRoot);
+            if (result.Succeeded) Rescan();
+            writeResult = result.Succeeded ? result : new AddSyncResult(result.Status,
+                result.Message + "\nThe setup may have changed since the last scan. Please rescan.");
+            Repaint();
+            return result;
         }
 
         public void SetColumnFilter(string query, MatrixColumnFilter filter)
@@ -138,6 +215,9 @@ namespace Nokotaro.BlendshapeSyncMapper
             matrix = null;
             detailScroll = Vector2.zero;
             scanError = null;
+            writeResult = null;
+            selectionCheck = null;
+            checkedRow = checkedColumn = -1;
             snapshotMessage = message;
         }
 

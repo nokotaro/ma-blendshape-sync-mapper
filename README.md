@@ -1,7 +1,7 @@
 # MA Blendshape Sync Mapper
 
 VRChat Avatar向けのModular Avatar Blendshape Syncを、一括で可視化・編集するUnity Editor Toolです。
-**開発中・正式Release前**です。現在は読み取り専用ScanとMatrix・Renderer Detailsを実装しています。
+**開発中・正式Release前**です。ScanとMatrix・Renderer Details、および安全なMissingセル1件へのBinding追加を実装しています。
 
 ## 対象と目的
 
@@ -17,9 +17,14 @@ VRChat Avatar向けのModular Avatar Blendshape Syncを、一括で可視化・�
 - Renderer × Source BlendShapeのMatrixを、検索とRelevant / All Source / Missingフィルタで絞り込む。
 - 固定Renderer列、セルTooltip、選択RendererのDetailsで既存Mappingと診断を確認する。
 - Renderer行をクリックしてHierarchy上のGameObjectを選択する。
+- Missingセルを選択し、Detailの`Add Sync`でexact同名Bindingを1件追加する。Undo/RedoとPrefab Instance Overrideに対応。
 
 SnapshotはWindow内の一時データです。Missingはexact同名Bindingの不足を表し、既存custom mappingの上書き許可を意味しません。
-Binding追加・更新・削除は未実装です。ScanとMatrix操作はアバターを変更しません。
+Scan・選択・Tooltipはアバターを変更しません。書き込みは`Add Sync`の明示実行時のみです。
+既存Custom、別SourceによるTarget占有、Renderer内のBroken、複数MA Component、解決不能参照は追加を拒否します。
+書き込み直前に最新状態を再検証し、成功後とUndo/Redo後に再Scanします。既存Binding/Remapは変更しません。
+同じAvatar内のScene Object・Prefab Instanceを対象とします。Prefab Asset直接編集、Prefab Mode、Play Modeは未対応です。
+一括追加・Binding更新・削除は未実装です。
 
 ## 環境と配布
 

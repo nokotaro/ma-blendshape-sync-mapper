@@ -14,7 +14,11 @@ Searchは大小文字を区別せず、Relevant（既定）/ All Source / Missin
 `●` synced、`○` missing exact、`△` missing + Target側custom占有、`-`同名Shapeなしを表します。
 補助記号`C`は関連custom、`×`は関連brokenです。Tooltipで実際の参照先・Shape名・Remap情報を確認できます。
 Renderer行を選択するとDetailsに全体集計、Hierarchy path、Instance ID、Component数、custom/other-source/broken診断が出ます。
-Component、Binding、Mesh、Scene、Prefabへの書き込みは行いません。Binding編集は未実装です。
+セルクリックは選択のみです。安全なMissingセルを選択するとDetailに`Add Sync`が表示され、押すとexact同名Bindingを1件だけ追加します。
+書き込み直前に最新Scene/MAを再検証し、重複・Custom/別Source占有・Renderer内Broken・複数Componentを拒否します。
+同じAvatar内のScene Object/Prefab Instanceに対応し、Undo/RedoとPrefab Overrideを記録します。Prefab Asset直接編集・Prefab Mode・Play Modeは対象外です。
+成功後とUndo/Redo後は自動再Scanします。既存Binding/Remapは変更しません。Scan・選択・Tooltipでは書き込みません。
+一括追加、Binding変更・削除、Broken修復は未実装です。
 
 ## 対応環境
 

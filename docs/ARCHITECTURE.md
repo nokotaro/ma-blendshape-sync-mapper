@@ -13,14 +13,14 @@ MVPでは既存Componentを読み取り、一覧化し、不足Bindingを検出�
 Source RendererとTarget Rootを指定し、Rescanで読み取り専用のSnapshotを作成する。
 Inactiveを含むTarget Root自身と子孫のSkinnedMeshRendererを検索し、Source Renderer自身を除外する。
 WindowはRenderer × Source BlendShapeのMatrixとRenderer単位の集計・Detailsを表示し、行クリックでは選択行のUI stateとSelection.activeGameObjectだけを変更する。
-Scene、Prefab、Mesh、MA Componentへの書き込み、Undo、Dirty設定は存在しない。
-Matrix編集、Binding追加・更新・削除は未実装。
+セルクリックは選択のみ。DetailのAdd Syncから安全なMissingセル1件のexact同名Bindingだけを追加する。
+一括追加、既存Binding更新・削除・修復、Remap編集は未実装。
 
 ## 責務分割
 
 - `Editor/UI/`: 入力、Rescan要求、Snapshot表示、Hierarchy選択。
 - `Editor/Analysis/`: Mesh名取得、Hierarchy走査、compatible/exact/missing照合、Snapshotと分類モデル。
-- `Editor/ModularAvatar/`: MA固有型への依存、全Componentと全Bindingの読取、公開APIでの参照解決。
+- `Editor/ModularAvatar/`: Readerによる全Component/Binding読取・公開APIでの参照解決。別のWriterが再検証・単一追加・Undo/Prefab処理を所有する。
 - `Editor/Utilities/`: 複数箇所で必要になった共通処理のみ。
 
 Utilitiesは未作成。独自Runtime/Builder/NDMF Passは設けない。
@@ -29,7 +29,7 @@ Utilitiesは未作成。独自Runtime/Builder/NDMF Passは設けない。
 
 Snapshotは非シリアライズの通常C#オブジェクトで、Window内だけに保持する。AssetやMapping DBとして保存しない。
 入力変更・参照していたUnity Objectの削除・Source/TargetのsharedMesh差し替えで破棄して再Scanを促す。
-OnGUIはSnapshotの表示と既存参照の有効性確認だけを行う。Hierarchy/Mesh再探索はRescan時だけ。
+OnGUIはSnapshotの表示と既存参照の有効性確認を行う。Hierarchy/Mesh再探索はRescan時と明示的なAdd Sync直前だけ。
 同一Meshの名前一覧と辞書は1回のScan内で共有する。比較はOrdinalで、大小文字を補正しない。
 Meshの全index/nameを保持し、名前からのindex解決はUnityのGetBlendShapeIndexを使用する。
 compatible/synced/missingは重複を除く名前の数、Source/Target shapesはMeshの生のblendShapeCount。
@@ -83,7 +83,7 @@ MA Editor AssemblyやNDMF APIは現在参照しない。
 
 Scanで自動修復・自動追加は行わない。不足Bindingと壊れた既存参照を区別し、曖昧な対応を勝手に確定しない。
 将来の追加操作は不足分だけを対象とし、既存の別名対応・RemapCurve・無関係なBindingを保全する。
-将来の書き込みタスクではUndoとPrefab差分を別途設計する。今回の製品コードにはその処理を含めない。
+単一追加の条件とUndo/Prefab差分は後述のWriter仕様に従う。
 
 ## 対応下限の判断
 
@@ -123,10 +123,30 @@ Relevantは少なくとも1行でcompatibleまたは上記関連Bindingがある
 Shape名は固定幅でclipし、完全名はHeader Tooltipに出す。記号を主に使い、選択色にはLight/Pro用の色と標準GUIStyleを使う。
 表示範囲にある行・列だけ描画し、GUIContent/Tooltip/DetailsはSnapshot構築時にcacheする。
 フィルタの列indexリストは検索/View変更時のみ再作成する。Repaint時にMA再読取・大規模LINQ・全セル再構築は行わない。
-入力変更や参照削除、Window再有効化でAnalysisとViewをまとめて破棄する。セルはLabelであり書き込みイベントを持たない。
+入力変更や参照削除、Window再有効化でAnalysisとViewをまとめて破棄する。セルは選択ボタンであり、クリックだけでは書き込まない。
 
-## 次段階の書き込みに必要な設計
+## 単一セルWriter
 
-MatrixのMissingは追加許可を意味しない。Targetのcustom/other-source/broken占有、複数Component、重複Bindingを再検証し、対象を明示する必要がある。
-書き込み直前に最新MAを再読取し、古いSnapshotのComponent/Binding indexをそのまま使用しない。
-既存Remap保全、重複防止、Undo、Prefab差分、キャンセル/失敗時の扱いを別タスクで設計・検証する。今回の製品には書き込み処理を追加しない。
+`ModularAvatarBlendshapeSyncWriter.TryAddExactSync`は一時ExactSyncRequestと現在のSource/Rootを受け、AddSyncResultを返す。UIはMA Listを操作しない。
+Requestは元Snapshot・Renderer行・Shape名を保持するだけで、Serializeしない。MA Componentが唯一のSource of Truthであることは変わらない。
+
+- 両Meshの現存Shape、Source/Rootの同一性、TargetのRoot内配置、Mesh差替え、削除済み参照を検証する。
+- 同じAvatar rootに属する編集可能なScene Object/Prefab Instanceに限定。Prefab Asset直接編集・Prefab Mode・Play Modeは拒否する。
+- `AvatarObjectReference.AVATAR_ROOT`をClone().Get(source/target)で別々に解決し、同一Avatarを確認する。`Set(source.gameObject)`で新しい参照を作り、Clone().Get(target)が実際のSource GameObjectへ解決することも確認する。MAのGetComponent解釈と異なるSMRも拒否する。MAのinternal RuntimeUtilは利用しない。
+- 書き込み直前にScanner/Readerで現在のTargetを再解析する。Snapshotだけでは許可しない。
+- exactありはAlreadyExists。CustomのTarget占有または選択Source Shapeからの既存customはCustomConflict。他Sourceの同名Target占有も拒否する。
+- 解決不能Bindingはセルへ確実に割り当てられないため、今回はRenderer内にBrokenが1件でもあれば全セルの追加を拒否する。Matrixの表示・Missing集計の意味は変えない。
+- Component 0個はUndo.AddComponent、1個は再利用、複数は拒否する。null List等の診断がある場合も拒否する。
+- 同期処理内で検証と追加を完結し、古い要求の再実行も最新exact判定で重複を防ぐ。
+
+MA 1.18.7の標準Inspectorの候補生成はLocalBlendshape未設定、Remap未初期化。OnValidateはRemapを0→0、100→100の2キー、左右Linear tangent、broken tangent、valid=trueへ正規化する。
+WriterはLocalBlendshapeを空文字（同名fallback）とし、新規Remapだけをその正規化済み初期値で作る。MAと同じAddKey手順を使い、Keyframe内部値とwrap modeの一致をテストする。
+既存BindingのList要素・参照・Curveは変更しない。Component全体のOnValidateやSerializedObject.Applyを呼ぶと既存Curveも正規化されるため、標準Inspector同様に直接Listへ1件追加する。
+MA自身の後続Inspector編集やUndo再読み込みでMAのOnValidateが走ることは外部Packageの挙動であり、本ツールが既存Curveを修復する機能ではない。
+
+Undo.RecordObjectとUndo.AddComponentを専用Groupへまとめ、Prefab Instanceでは変更後にRecordPrefabInstancePropertyModificationsを呼ぶ。
+FlushUndoRecordObjectsで確定し、次操作とGroupを分離する。例外はResultへ変換し、作成済みGroupをRevertする。Rollback失敗もWindowへ表示する。
+正常なScene dirtyはUnity Undo経由で管理し、Scan/選択/TooltipではDirtyを設定しない。
+成功後とUndo/Redoイベント後はSnapshotを再構築し、RendererとShape名による選択を復元する。Missing filterでは追加済み列が非表示になる場合も選択Detailは保持する。
+
+一括追加へ進む前には対象集合のレビュー、競合の説明、全体/個別Rollback方針、Undo Group粒度、途中キャンセルを別途設計する。

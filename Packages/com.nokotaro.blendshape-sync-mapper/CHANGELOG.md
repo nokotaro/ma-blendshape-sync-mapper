@@ -2,6 +2,9 @@
 
 ## 0.1.0 - Unreleased
 
+- Add explicit single-cell Add Sync with live validation, duplicate/conflict rejection, Undo/Redo and Prefab instance overrides.
+- Preserve existing bindings/remap curves; use MA 1.18.7 normalized defaults only for the new exact binding.
+- Select cells without mutation; rescan after writes and Undo/Redo while retaining Renderer/Shape selection.
 - Add a read-only Renderer × Source BlendShape matrix with a fixed renderer pane and synchronized scrolling.
 - Add case-insensitive column search and Relevant / All Source / Missing views.
 - Show Missing + Custom distinctly, related custom/broken indicators, cached binding/remap tooltips and renderer diagnostics.

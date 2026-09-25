@@ -53,7 +53,8 @@ Unity MCPは導入していない。
 
 - Unityのコンパイル後、Consoleのerror/warningと発生元を確認する。
 - メニューからWindowを開き、Source RendererとTarget Rootを指定してRescanする。入力不足・Source MeshなしではScanできない理由を表示する。
-- inactiveを含むRenderer一覧とcompatible/synced/missing/custom/brokenの集計を確認する。Scene、Prefab、MA Bindingを書き換える機能はない。
+- inactiveを含むRenderer一覧とcompatible/synced/missing/custom/brokenの集計を確認する。Scan・選択は読み取り専用。
+- 安全なMissingセルのDetailでAdd Syncを押した場合のみ1件追加する。専用検証SceneでUndo/Redo、Prefab Instance Override、既存Binding保全も確認する。
 - MeshやBindingを外部で編集した後はRescanする。入力変更・参照Object削除時はSnapshotを無効化する。
 - 製品asmdefのincludePlatformsがEditorだけであることを確認する。
 - 製品ファイル・フォルダにUnity生成の.metaがあり、Git追跡対象であることを確認する。
@@ -111,6 +112,19 @@ Scene/Prefabの読み取り専用テストでは、Scan・Window描画前後のs
 - 操作中にSceneの未保存マークが付かず、保存SceneのSHA256も操作前後で一致。Prefab/serialized値の不変性と参照削除時の無効化は上記Editor Testで検証。Light skinは未目視。
 - 目視で見つかったRenderer行の2行テキスト切れをStyleのfixedHeight解除で修正。Window再有効化時の空エラー表示も状態初期化で修正し、再コンパイル後にRescan案内へ戻ることを確認した。
 - 対話検証中の外部Package再コンパイルでは従来のMA/NDMF warningに加え、CancellationTokenSourceの二重Disposeメッセージが1件あった。最終batchテストでは再現せず、製品コードの例外・テスト失敗はない。
+
+### Single Cell Binding Writeの実測結果（2026-09-25）
+
+- Unity 2022.3.22f1 / MA 1.18.7で最終コンパイル成功。EditMode全40件成功、失敗・skip 0件。
+- 既存/新規Componentへの単一追加、Source参照、Local名fallback、MA標準OnValidate後と一致するRemap初期値、古い要求の重複拒否を検証。
+- Scan後に生じたcustom/other-source/broken競合、Shape消失、Source変更、Mesh差替え、Avatar外への移動、Component追加、削除済みObject、複数MA Componentを拒否することを検証。
+- 既存Curveのキー・wrap mode・参照を追加処理が変更しないこと、拒否時のScene dirty/serialized値/Undo Group不変性を検証。
+- Component既存/新規の両方でUndo/Redo成功。Prefab Instanceの既存Binding Override、新規Component Override、保存Sceneの再読込後の参照解決、元Prefabのbyte列不変性を検証。Prefab Assetへの直接書き込みは拒否。
+- Windowのセル選択/描画でSceneをdirtyにせず、Add Sync後とUndo/Redo後に再Scanし、選択とMatrix表示を更新することを検証。既存の読み取り専用回帰テストも全件成功。
+- Windows Unity対話画面（Dark skin）で、合成Prefabの既存/新規Component双方についてMissing選択、Add Sync、○→●、MA標準InspectorのSource/Shape/同名fallback/直線Remap、Ctrl+Z、Ctrl+Y、Componentの消去/復元を目視確認。
+- Prefab Override一覧で既存MA Binding変更と新規MA Component追加を確認。検証用Scene/Asset/helperはRepositoryから除去済み。Light skinと実アバター資産での目視は未実施。
+- 製品・テストコードの最終warning/errorは0件。Unityのライセンス署名Code 10/Access token unavailableとNDMFのフォント未検出ログは残る。対話ログにはUnity更新確認のHTTP 404もあるが、機能の例外はない。
+- 書き込み後の意図的な例外注入によるRollbackテストは未実施。例外時は専用Undo GroupをRevertし、Rollback失敗もUIへ報告する設計。
 
 ### 初期構築時の実測結果
 
